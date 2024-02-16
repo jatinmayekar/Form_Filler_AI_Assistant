@@ -189,14 +189,14 @@ if 'assistant' not in st.session_state:
                                          {
                                              "type": "string",
                                              "description": "The local full path to the pdf file"
-                                         },
-                                 }
-                         },
-                     "required":
-                         [
-                             "input_pdf_path"
-                         ]
-                 },
+                                         }
+                                 },
+                             "required":
+                                 [
+                                    "input_pdf_path"
+                                 ]
+                         }
+                 }
              },
             {"type": "function",
              "function":
@@ -229,16 +229,16 @@ if 'assistant' not in st.session_state:
                                              "type": "integer",
                                              "description": "The page number to fill"
                                          }
-                                 }
-                         },
-                     "required":
-                         [
-                             "input_pdf_path",
-                             "output_pdf_path",
-                             "data_dict",
-                             "page_number"
-                         ]
-                 },
+                                 },
+                             "required":
+                                 [
+                                     "input_pdf_path",
+                                     "output_pdf_path",
+                                     "data_dict",
+                                     "page_number"
+                                 ]
+                         }
+                 }
              }
         ]
         # file_ids=[file_og.id]
