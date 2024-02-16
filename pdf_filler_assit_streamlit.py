@@ -1,40 +1,40 @@
-import openai
-import tiktoken
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import pyaudio
-import wave
-import cv2
-from openai import OpenAI
-import os
-import sys
+# import os
+# import sys
 import json
-import requests
-import time
-import datetime
-import random
-import re
+# import datetime
+# import random
+# import re
 import logging
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-from pathlib import Path
-import tkinter as tk
-import base64
-from io import StringIO
-from tkinter import messagebox
-import sqlite3
-import load_dotenv
-from load_dotenv import load_dotenv
-import fillpdf
-from fillpdf import fillpdfs
-from pdfrw import PdfReader
-from pdf_fill_write import write_fillable_pdf_for_page_number
-import sys
 import os
+import sys
+# import requests
+import time
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import openai
+import pandas as pd
+import seaborn as sns
+# import tiktoken
+import streamlit as st
+from fillpdf import fillpdfs
+# from pathlib import Path
+# import tkinter as tk
+# import base64
+# from io import StringIO
+# from tkinter import messagebox
+# import sqlite3
+from load_dotenv import load_dotenv
+# import pandas as pd
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import pyaudio
+# import wave
+# import cv2
+from openai import OpenAI
+from pdfrw import PdfReader
+
+from pdf_fill_write import write_fillable_pdf_for_page_number
 
 load_dotenv()
 
@@ -47,15 +47,15 @@ logging.getLogger('httpx').setLevel(logging.WARNING)
 
 ai_model = "gpt-4-1106-preview"
 user_id = 46
-user_query=""
-ai_response="" 
-thread_id=0 
-turn_count=0
+user_query = ""
+ai_response = ""
+thread_id = 0
+turn_count = 0
 start_time = datetime.now()
-end_time=datetime.now()
-conversation_history=""
-analyzer_response_value_display=""
-#encoding = tiktoken.get_encoding("cl100k_base")
+end_time = datetime.now()
+conversation_history = ""
+analyzer_response_value_display = ""
+# encoding = tiktoken.get_encoding("cl100k_base")
 user_token = 0
 ai_token = 0
 total_tokens = 0
@@ -76,36 +76,40 @@ class SuppressPrint:
         sys.stdout.close()  # Close the stream
         sys.stdout = self._original_stdout  # Restore original stdout
 
+
 def get_total_no_of_pages(input_pdf_path):
     return len(PdfReader(input_pdf_path).pages)
+
 
 def get_latest_unfilled_page_with_fields(input_pdf_path):
     page_number = -1
     total_no_of_pages = get_total_no_of_pages(input_pdf_path)
-    #print("Total no of pages: ", total_no_of_pages)
+    # print("Total no of pages: ", total_no_of_pages)
 
-    for i in range(total_no_of_pages):
+    for i1 in range(total_no_of_pages):
         flag = False
         with SuppressPrint():
-            fields = fillpdfs.get_form_fields(input_pdf_path, page_number=i+1)
+            fields = fillpdfs.get_form_fields(input_pdf_path, page_number=i1 + 1)
         for key, value in fields.items():
             if value != "":
                 # page is filled, so skip and go to next page
                 flag = True
                 break
-        if flag == False:
+        if not flag:
             # unfilled page found
-            page_number = i+1
+            page_number = i1 + 1
             break
 
     if page_number == -1:
         return None
     else:
         return page_number, fields
-    
+
+
 def set_fields(input_pdf_path, output_pdf_path, data_dict, page_number):
     write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dict, page_number, flatten=True)
     return output_pdf_path
+
 
 # Streamlit app
 # Initialize session state if not already done
@@ -120,7 +124,7 @@ st.title("PDF filler GPT")
 
 with st.sidebar:
     st.title("Upload files here")
-    uploaded_file = st.file_uploader("Choose a file") 
+    uploaded_file = st.file_uploader("Choose a file")
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -140,97 +144,104 @@ if 'assistant' not in st.session_state:
     st.session_state.assistant = st.session_state.client.beta.assistants.create(
         name="PDF Filler Assistant",
         model="gpt-4-1106-preview",
-        instructions="""Context: "Assist users in filling out a PDF form by guiding them through each step, utilizing predefined functions to 
-        streamline the process, and providing clarifications for any uncertainties within the document. If the user expresses uncertainty about any text within the PDF, offer explanations or definitions to clarify. This may involve simple restatements in layman's terms or providing context to ensure understanding.
-        Leverage external knowledge where necessary to provide accurate and comprehensive explanations, while ensuring the information shared respects privacy and security standards."
+        instructions="""Context: "Assist users in filling out a PDF form by guiding them through each step, utilizing 
+        predefined functions to streamline the process, and providing clarifications for any uncertainties within the 
+        document. If the user expresses uncertainty about any text within the PDF, offer explanations or definitions 
+        to clarify. This may involve simple restatements in layman's terms or providing context to ensure 
+        understanding. Leverage external knowledge where necessary to provide accurate and comprehensive 
+        explanations, while ensuring the information shared respects privacy and security standards."
                 
         Additional resource: "Reach out to parth.thakkar@yourcfp.com for any queries or assistance."
 
         Style: "Simple, structured, clean, and clear"
         
-        Tone: "Maintain a friendly and professional tone throughout the interaction, ensuring the user feels supported and understood. ust use first person style - as you are the world's best assistant dedicated to help user fill the pdf"
+        Tone: "Maintain a friendly and professional tone throughout the interaction, ensuring the user feels 
+        supported and understood. ust use first person style - as you are the world's best assistant dedicated to 
+        help user fill the pdf"
 
-        Objective: "Must follow these steps to fill the pdf:
-        1. Greet the users and ask for the local full path to the pdf file
-        2. Get the latest unfilled page number and its fillable fields in a dictionary format using find_latest_unfilled_page_with_fields function. 
-        The dictionary is named as data_dict and is defined as data_dict = {'field1': 'value1', 'field2': 'value2', ...}, where each field is a key and the value is the user's response to the fillable field
-        3. Use the key values of the dictionary to create prompts to ask the user to fill in the blanks and then store the user's response in the values of that dictionary against the corresponding key.
-        Complete the data_dict with the user's responses. Must ensure the format of the dictionary is correct. example: data_dict = {'Name': 'Jon', 'Date of Birth': '03/05/2001', 'Address': '44 Melrone Stree, Manhattan, NY-4906', 'Mobile': '2974505939', ...}
-        4. Send this completed data_dict dictionary to the set_fields function to fill the pdf with users answers. For the output_pdf_path, use the same path as the input_pdf_path with the suffix '_Complete' with the current page number added to the file name
-        5. Provide the output_pdf_path to the user
-        6. Repeat steps 2-5 until all the pages are filled
-        7. Thank the user for using the service and offer further assistance or direct them to additional resources if needed
-        """,
-        tools=
-        [
+        Objective: "Must follow these steps to fill the pdf: 1. Greet the users and ask for the local full path to 
+        the pdf file 2. Get the latest unfilled page number and its fillable fields in a dictionary format using 
+        find_latest_unfilled_page_with_fields function. The dictionary is named as data_dict and is defined as 
+        data_dict = {'field1': 'value1', 'field2': 'value2', ...}, where each field is a key and the value is the 
+        user's response to the fillable field 3. Use the key values of the dictionary to create prompts to ask the 
+        user to fill in the blanks and then store the user's response in the values of that dictionary against the 
+        corresponding key. Complete the data_dict with the user's responses. Must ensure the format of the dictionary 
+        is correct. example: data_dict = {'Name': 'Jon', 'Date of Birth': '03/05/2001', 'Address': '44 Melrone Stree, 
+        Manhattan, NY-4906', 'Mobile': '2974505939', ...} 4. Send this completed data_dict dictionary to the 
+        set_fields function to fill the pdf with users answers. For the output_pdf_path, use the same path as the 
+        input_pdf_path with the suffix '_Complete' with the current page number added to the file name 5. Provide the 
+        output_pdf_path to the user 6. Repeat steps 2-5 until all the pages are filled 7. Thank the user for using 
+        the service and offer further assistance or direct them to additional resources if needed""",
+        tools=[
             {"type": "code_interpreter"},
             {"type": "retrieval"},
             {"type": "function",
-                "function": 
-                {
-                    "name": "get_latest_unfilled_page_with_fields",
-                    "description": "Get the latest unfilled page number and its fillable fields in a dictionary format",
-                    "parameters": 
-                    {
-                        "type": "object",
-                        "properties": 
-                        {
-                            "input_pdf_path":
-                            {
-                                "type":"string",
-                                "description":"The local full path to the pdf file"
-                            },
-                        }
-                    },
-                    "required": 
-                    [
-                        "input_pdf_path"
-                    ]
-                },
-            },
+             "function":
+                 {
+                     "name": "get_latest_unfilled_page_with_fields",
+                     "description": "Get the latest unfilled page number & its fillable fields in a dictionary format",
+                     "parameters":
+                         {
+                             "type": "object",
+                             "properties":
+                                 {
+                                     "input_pdf_path":
+                                         {
+                                             "type": "string",
+                                             "description": "The local full path to the pdf file"
+                                         },
+                                 }
+                         },
+                     "required":
+                         [
+                             "input_pdf_path"
+                         ]
+                 },
+             },
             {"type": "function",
-                "function": 
-                {
-                    "name": "set_fields",
-                    "description": "Set the fillable fields in the pdf with the user's responses",
-                    "parameters": 
-                    {
-                        "type": "object",
-                        "properties": 
-                        {
-                            "input_pdf_path":
-                            {
-                                "type": "string",
-                                "description": "The local full path to the pdf file"
-                            },
-                            "output_pdf_path":
-                            {
-                                "type": "string",
-                                "description": "The local full path to the output pdf file"
-                            },
-                            "data_dict":
-                            {
-                                "type": "object",
-                                "description": "The data_dict dictionary containing the user's responses to the fillable fields"
-                            },
-                            "page_number":
-                            {
-                                "typr": "integer",
-                                "description": "The page number to fill"
-                            }
-                        }
-                    },
-                    "required": 
-                    [
-                        "input_pdf_path",
-                        "output_pdf_path",
-                        "data_dict",
-                        "page_number"
-                    ]
-                },
-            }
+             "function":
+                 {
+                     "name": "set_fields",
+                     "description": "Set the fillable fields in the pdf with the user's responses",
+                     "parameters":
+                         {
+                             "type": "object",
+                             "properties":
+                                 {
+                                     "input_pdf_path":
+                                         {
+                                             "type": "string",
+                                             "description": "The local full path to the pdf file"
+                                         },
+                                     "output_pdf_path":
+                                         {
+                                             "type": "string",
+                                             "description": "The local full path to the output pdf file"
+                                         },
+                                     "data_dict":
+                                         {
+                                             "type": "object",
+                                             "description": "The data_dict dictionary containing the user's responses "
+                                                            "to the fillable fields"
+                                         },
+                                     "page_number":
+                                         {
+                                             "type": "integer",
+                                             "description": "The page number to fill"
+                                         }
+                                 }
+                         },
+                     "required":
+                         [
+                             "input_pdf_path",
+                             "output_pdf_path",
+                             "data_dict",
+                             "page_number"
+                         ]
+                 },
+             }
         ]
-        #file_ids=[file_og.id]
+        # file_ids=[file_og.id]
     )
 
     # assistant_file_1 = st.session_state.client.beta.assistants.files.create(
@@ -241,10 +252,10 @@ if 'assistant' not in st.session_state:
     print("\nAssistant: ", st.session_state.assistant)
 
 if 'thread' not in st.session_state:
-    st.session_state.thread = st.session_state.client.beta.threads.create()     
-    print("Thread: ", st.session_state.thread) 
+    st.session_state.thread = st.session_state.client.beta.threads.create()
+    print("Thread: ", st.session_state.thread)
 
-if "prev_uploaded_file" not in st.session_state: 
+if "prev_uploaded_file" not in st.session_state:
     st.session_state.prev_uploaded_file = None
 
 prompt = st.chat_input("Ask here...")
@@ -252,7 +263,7 @@ if prompt is None:
     prompt = ""
 print("\nPrompt: ", prompt)
 
-if prompt != "": 
+if prompt != "":
     start_time = datetime.now()
 
     # Add user message to chat history
@@ -260,11 +271,11 @@ if prompt != "":
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.status("Thinking...", expanded=False) as status:  
+    with st.status("Thinking...", expanded=False) as status:
         if uploaded_file is not None:
             # To read file as bytes:
             bytes_data = uploaded_file.getvalue()
-            
+
             file_name = uploaded_file.name
             print(file_name)
             print(st.session_state.prev_uploaded_file)
@@ -322,7 +333,7 @@ if prompt != "":
                 status.update(label=run.status, state="complete", expanded=False)
                 break
             if run.status == "requires_action":
-                msg=[]
+                msg = []
                 tool_calls = run.required_action.submit_tool_outputs.tool_calls
                 print("\nTool calls: ", tool_calls)
 
@@ -330,14 +341,19 @@ if prompt != "":
                     if tool_calls[i].function.name == "get_latest_unfilled_page_with_fields":
                         msg.append({
                             "tool_call_id": tool_calls[i].id,
-                            "output": json.dumps(get_latest_unfilled_page_with_fields(input_pdf_path=json.loads(tool_calls[i].function.arguments)['input_pdf_path']))
+                            "output": json.dumps(get_latest_unfilled_page_with_fields(
+                                input_pdf_path=json.loads(tool_calls[i].function.arguments)['input_pdf_path']))
                         })
                     elif tool_calls[i].function.name == "set_fields":
                         msg.append({
                             "tool_call_id": tool_calls[i].id,
-                            "output": set_fields(input_pdf_path=json.loads(tool_calls[i].function.arguments)['input_pdf_path'], output_pdf_path=json.loads(tool_calls[i].function.arguments)['output_pdf_path'], data_dict=json.loads(tool_calls[i].function.arguments)['data_dict'], page_number=json.loads(tool_calls[i].function.arguments)['page_number'])
+                            "output": set_fields(
+                                input_pdf_path=json.loads(tool_calls[i].function.arguments)['input_pdf_path'],
+                                output_pdf_path=json.loads(tool_calls[i].function.arguments)['output_pdf_path'],
+                                data_dict=json.loads(tool_calls[i].function.arguments)['data_dict'],
+                                page_number=json.loads(tool_calls[i].function.arguments)['page_number'])
                         })
-                    
+
                 print("\nTool output: ", msg)
 
                 run = st.session_state.client.beta.threads.runs.submit_tool_outputs(
@@ -362,44 +378,44 @@ if prompt != "":
 
     input_audio_flag = False
     end_time = datetime.now()
-    user_query=prompt
-    ai_response=response
-    thread_id=st.session_state.thread.id
-    turn_count=len(st.session_state.messages)
+    user_query = prompt
+    ai_response = response
+    thread_id = st.session_state.thread.id
+    turn_count = len(st.session_state.messages)
     start_time = start_time
-    end_time=end_time
-    conversation_history=json.dumps(st.session_state.messages)
+    end_time = end_time
+    conversation_history = json.dumps(st.session_state.messages)
 
 with st.sidebar:
-        st.write("User ID ", user_id)
-        st.write("Model: gpt-4-1106-preview")
-        st.write("Timestamp ", start_time)
+    st.write("User ID ", user_id)
+    st.write("Model: gpt-4-1106-preview")
+    st.write("Timestamp ", start_time)
 
-        current_time = pd.Timestamp.now()  # or use any other method to get the current time
-        st.session_state['timestamps'].append(current_time)
+    current_time = pd.Timestamp.now()  # or use any other method to get the current time
+    st.session_state['timestamps'].append(current_time)
 
-        # Convert to DataFrame
-        df = pd.DataFrame({'Timestamp': st.session_state['timestamps']})
+    # Convert to DataFrame
+    df = pd.DataFrame({'Timestamp': st.session_state['timestamps']})
 
-        # Plotting (if there are timestamps)
-        if not df.empty:
-            # Extracting hour of the day for daily analysis
-            df['Hour'] = df['Timestamp'].dt.hour
+    # Plotting (if there are timestamps)
+    if not df.empty:
+        # Extracting hour of the day for daily analysis
+        df['Hour'] = df['Timestamp'].dt.hour
 
-            # Plotting Hourly Distribution
-            plt.figure(figsize=(10, 4))
-            sns.histplot(df['Hour'], bins=24, kde=False)
-            plt.title('Hourly Interaction Frequency')
-            plt.xlabel('Hour of the Day')
-            plt.ylabel('Number of Interactions')
-            plt.xticks(range(0, 24))
-            plt.grid(True)
+        # Plotting Hourly Distribution
+        plt.figure(figsize=(10, 4))
+        sns.histplot(df['Hour'], bins=24, kde=False)
+        plt.title('Hourly Interaction Frequency')
+        plt.xlabel('Hour of the Day')
+        plt.ylabel('Number of Interactions')
+        plt.xticks(range(0, 24))
+        plt.grid(True)
 
-            # Display the plot in Streamlit
-            st.pyplot(plt)
+        # Display the plot in Streamlit
+        st.pyplot(plt)
 
-        response_time_seconds = (end_time - start_time).total_seconds()
-        
-        st.write("Thread ID: ", thread_id)
-        st.write("Count: ", turn_count)
-        st.write("Response Time (seconds): ",str(response_time_seconds))
+    response_time_seconds = (end_time - start_time).total_seconds()
+
+    st.write("Thread ID: ", thread_id)
+    st.write("Count: ", turn_count)
+    st.write("Response Time (seconds): ", str(response_time_seconds))
