@@ -1,23 +1,24 @@
 import fitz
 import math
 import pdfrw
-from pdf2image import convert_from_path # Needs conda install -c conda-forge poppler
+from pdf2image import convert_from_path  # Needs conda install -c conda-forge poppler
 from PIL import Image
 from collections import OrderedDict
 
-ANNOT_KEY = '/Annots'               # key for all annotations within a page
-ANNOT_FIELD_KEY = '/T'              # Name of field. i.e. given ID of field
-ANNOT_FORM_type = '/FT'             # Form type (e.g. text/button)
-ANNOT_FORM_button = '/Btn'          # ID for buttons, i.e. a checkbox
-ANNOT_FORM_text = '/Tx'             # ID for textbox
+ANNOT_KEY = '/Annots'  # key for all annotations within a page
+ANNOT_FIELD_KEY = '/T'  # Name of field. i.e. given ID of field
+ANNOT_FORM_type = '/FT'  # Form type (e.g. text/button)
+ANNOT_FORM_button = '/Btn'  # ID for buttons, i.e. a checkbox
+ANNOT_FORM_text = '/Tx'  # ID for textbox
 ANNOT_FORM_options = '/Opt'
 ANNOT_FORM_combo = '/Ch'
 SUBTYPE_KEY = '/Subtype'
 WIDGET_SUBTYPE_KEY = '/Widget'
 ANNOT_FIELD_PARENT_KEY = '/Parent'  # Parent key for older pdf versions
-ANNOT_FIELD_KIDS_KEY = '/Kids'      # Kids key for older pdf versions
+ANNOT_FIELD_KIDS_KEY = '/Kids'  # Kids key for older pdf versions
 ANNOT_VAL_KEY = '/V'
 ANNOT_RECT_KEY = '/Rect'
+
 
 def convert_dict_values_to_string(dictionary):
     """
@@ -33,7 +34,7 @@ def convert_dict_values_to_string(dictionary):
         The resulting dictionary with only string values.
     """
     list_delim, tuple_delim = '-', '^'
-  
+
     res = dict()
     for sub in dictionary:
 
@@ -44,8 +45,9 @@ def convert_dict_values_to_string(dictionary):
             res[sub] = tuple_delim.join(list([str(ele) for ele in dictionary[sub]]))
         else:
             res[sub] = str(dictionary[sub])
-            
-    return res    
+
+    return res
+
 
 def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dict, page_number, flatten=False):
     """
@@ -53,6 +55,7 @@ def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dic
     Does so by updating each individual annotation with the contents of the dat_dict.
     Parameters
     ---------
+    page_number
     input_pdf_path: str
         Path to the pdf you want to flatten.
     output_pdf_path: str
@@ -64,19 +67,21 @@ def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dic
         will be uneditable.
     Returns
     ---------
+    object
     """
     data_dict = convert_dict_values_to_string(data_dict)
 
     template_pdf = pdfrw.PdfReader(input_pdf_path)
-    Page = template_pdf.pages[page_number-1]
-  
-    if Page[ANNOT_KEY]:
-        for annotation in Page[ANNOT_KEY]:
+    print("Page number : ", page_number)
+    page = template_pdf.pages[page_number - 1]
+
+    if page[ANNOT_KEY]:
+        for annotation in page[ANNOT_KEY]:
             target = annotation if annotation[ANNOT_FIELD_KEY] else annotation[ANNOT_FIELD_PARENT_KEY]
-            if annotation[ANNOT_FORM_type] == None:
+            if annotation[ANNOT_FORM_type] is None:
                 pass
             if target and annotation[SUBTYPE_KEY] == WIDGET_SUBTYPE_KEY:
-                key = target[ANNOT_FIELD_KEY][1:-1] # Remove parentheses
+                key = target[ANNOT_FIELD_KEY][1:-1]  # Remove parentheses
                 target_aux = target
                 while target_aux['/Parent']:
                     key = target['/Parent'][ANNOT_FIELD_KEY][1:-1] + '.' + key
@@ -94,7 +99,7 @@ def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dic
                                 res = dict()
                                 for sub in data_dict:
                                     if isinstance(data_dict[sub], list):
-                                        res[sub] = list_delim.join([str(ele) for ele in data_dict[sub]]) 
+                                        res[sub] = list_delim.join([str(ele) for ele in data_dict[sub]])
                                     else:
                                         res[sub] = str(data_dict[sub])
                                 temp_dict = res
@@ -118,16 +123,19 @@ def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dic
                                     if set(keys).intersection(set(temp_dict.values())):
                                         each.update(pdfrw.PdfDict(AS=val_str))
                                 if data_dict[key] not in options:
-                                    if data_dict[key] != "None"  and data_dict[key] != "":
+                                    if data_dict[key] != "None" and data_dict[key] != "":
                                         raise KeyError(f"{data_dict[key]} Not An Option, Options are {options}")
                                 else:
                                     if set(keys).intersection(set(temp_dict.values())):
-                                        annotation.update(pdfrw.PdfDict(V=pdfrw.objects.pdfname.BasePdfName(f'/{data_dict[key]}')))
+                                        annotation.update(
+                                            pdfrw.PdfDict(V=pdfrw.objects.pdfname.BasePdfName(f'/{data_dict[key]}')))
                         else:
                             # button field i.e. a checkbox
-                            target.update( pdfrw.PdfDict( V=pdfrw.PdfName(data_dict[key]) , AS=pdfrw.PdfName(data_dict[key]) ))
+                            target.update(
+                                pdfrw.PdfDict(V=pdfrw.PdfName(data_dict[key]), AS=pdfrw.PdfName(data_dict[key])))
                             if target[ANNOT_FIELD_KIDS_KEY]:
-                                target[ANNOT_FIELD_KIDS_KEY][0].update( pdfrw.PdfDict( V=pdfrw.PdfName(data_dict[key]) , AS=pdfrw.PdfName(data_dict[key]) ))
+                                target[ANNOT_FIELD_KIDS_KEY][0].update(
+                                    pdfrw.PdfDict(V=pdfrw.PdfName(data_dict[key]), AS=pdfrw.PdfName(data_dict[key])))
                     elif target[ANNOT_FORM_type] == ANNOT_FORM_combo:
                         # Drop Down Combo Box
                         export = None
@@ -144,8 +152,9 @@ def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dic
                                 if each in data_dict[key]:
                                     export.append(pdfrw.objects.pdfstring.PdfString.encode(each))
                             if export is None:
-                                if data_dict[key] != "None"  and data_dict[key] != "":
-                                    raise KeyError(f"{data_dict[key]} Not An Option For {annotation[ANNOT_FIELD_KEY]}, Options are {options}")
+                                if data_dict[key] != "None" and data_dict[key] != "":
+                                    raise KeyError(
+                                        f"{data_dict[key]} Not An Option For {annotation[ANNOT_FIELD_KEY]}, Options are {options}")
                             pdfstr = pdfrw.objects.pdfarray.PdfArray(export)
                         else:
                             for each in options:
@@ -153,14 +162,15 @@ def write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dic
                                     export = each
                             if export is None:
                                 if data_dict[key] != "None" and data_dict[key] != "":
-                                    raise KeyError(f"{data_dict[key]} Not An Option For {annotation[ANNOT_FIELD_KEY]}, Options are {options}")
+                                    raise KeyError(
+                                        f"{data_dict[key]} Not An Option For {annotation[ANNOT_FIELD_KEY]}, Options are {options}")
                             pdfstr = pdfrw.objects.pdfstring.PdfString.encode(data_dict[key])
                         annotation.update(pdfrw.PdfDict(V=pdfstr, AS=pdfstr))
                     elif target[ANNOT_FORM_type] == ANNOT_FORM_text:
                         # regular text field
-                        target.update( pdfrw.PdfDict( V=data_dict[key], AP=data_dict[key]) )
+                        target.update(pdfrw.PdfDict(V=data_dict[key], AP=data_dict[key]))
                         if target[ANNOT_FIELD_KIDS_KEY]:
-                            target[ANNOT_FIELD_KIDS_KEY][0].update( pdfrw.PdfDict( V=data_dict[key], AP=data_dict[key]) )
+                            target[ANNOT_FIELD_KIDS_KEY][0].update(pdfrw.PdfDict(V=data_dict[key], AP=data_dict[key]))
             if flatten == True:
                 annotation.update(pdfrw.PdfDict(Ff=1))
     template_pdf.Root.AcroForm.update(pdfrw.PdfDict(NeedAppearances=pdfrw.PdfObject('true')))
