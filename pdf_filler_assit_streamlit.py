@@ -92,7 +92,14 @@ class SuppressPrint:
 
 
 def get_current_page_number():
+    global page_number
     page_number = st.session_state['st_page_number']
+    return page_number
+
+
+def set_current_page_number(input_page_number):
+    global page_number
+    page_number = st.session_state['st_page_number'] = input_page_number
     return page_number
 
 
@@ -166,7 +173,7 @@ def get_latest_unfilled_page_number():
 
 def get_fields_from_current_page():
     global fields
-    fields = fillpdfs.get_form_fields(input_pdf_path, page_number)
+    fields = fillpdfs.get_form_fields(input_pdf_path=input_pdf_path, page_number=page_number)
     return fields
 
 
@@ -175,7 +182,8 @@ def set_fields():
     output_pdf_path = set_output_pdf_path()
 
     input_data_dict = get_dict_from_database_for_current_page()
-    write_fillable_pdf_for_page_number(st.session_state['st_input_pdf_path'], output_pdf_path, input_data_dict, st.session_state['st_page_number'], flatten=True)
+    write_fillable_pdf_for_page_number(st.session_state['st_input_pdf_path'], output_pdf_path, input_data_dict,
+                                       st.session_state['st_page_number'], flatten=True)
     return output_pdf_path
 
 
@@ -254,6 +262,8 @@ def get_empty_fields_for_current_page():
     conn = sqlite3.connect('key_value_store.db')
     cursor = conn.cursor()
 
+    page_number = get_current_page_number()
+
     # Retrieve empty fields for the specified page number
     cursor.execute("SELECT key FROM key_value_pairs WHERE page_number = ? AND value = ''", (page_number,))
     empty_fields = [row[0] for row in cursor.fetchall()]
@@ -267,6 +277,9 @@ def get_empty_fields_for_current_page():
 def get_dict_from_database_for_current_page():
     conn = sqlite3.connect('key_value_store.db')
     cursor = conn.cursor()
+
+    page_number = get_current_page_number()
+
     cursor.execute("SELECT key, value FROM key_value_pairs WHERE page_number = ?", (page_number,))
     rows = cursor.fetchall()
     conn.close()
@@ -352,7 +365,9 @@ if 'assistant' not in st.session_state:
         
         Function: get_fields_from_current_page
         List all fields on the current page that need to be filled.
+        Skip any field if its key is undefined
         Ask for User Input and Store Responses
+        
         
         Step: For each field on the current page, prompt the user for input.
         Function: insert_key_value
@@ -387,6 +402,23 @@ if 'assistant' not in st.session_state:
                     "name": "get_current_page_number",
                     "description": "Get the current page number.",
                     "parameters": {}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "set_current_page_number",
+                    "description": "Set the current page number. In cases, where the page returns no fields or no empty fields, use this to move to the next page number",
+                    "parameters": {
+                        "type": "object",  # Indicating the parameters should be structured as an object
+                        "properties": {
+                            "input_page_number": {
+                                "type": "integer",
+                                "description": "a page number"
+                            }
+                        },
+                        "required": ["input_page_number"]
+                    }
                 }
             },
             {
@@ -655,13 +687,13 @@ if prompt != "":
                 content=prompt
             )
 
-        #print("\nMessage: ", message)
+        # print("\nMessage: ", message)
 
         run_create = st.session_state.client.beta.threads.runs.create(
             thread_id=st.session_state.thread.id,
             assistant_id=st.session_state.assistant.id,
         )
-        #print("\nRun create: ", run_create)
+        # print("\nRun create: ", run_create)
 
         while True:
             time.sleep(1)
@@ -683,6 +715,11 @@ if prompt != "":
                         msg.append({
                             "tool_call_id": tool_calls[i].id,
                             "output": f"Current page number: {get_current_page_number()}"
+                        })
+                    elif tool_calls[i].function.name == "set_current_page_number":
+                        msg.append({
+                            "tool_call_id": tool_calls[i].id,
+                            "output": f"Set current page number as : {set_current_page_number(json.loads(tool_calls[i].function.arguments)['input_page_number'])}"
                         })
                     elif tool_calls[i].function.name == "get_current_input_pdf_path":
                         msg.append({
@@ -795,12 +832,12 @@ if prompt != "":
                     run_id=run.id,
                     tool_outputs=msg
                 )
-                #print("\nRun - Tool outputs: ", run)
+                # print("\nRun - Tool outputs: ", run)
 
         messages = st.session_state.client.beta.threads.messages.list(
             thread_id=st.session_state.thread.id
         )
-        #print("\nMessages: ", messages)
+        # print("\nMessages: ", messages)
 
     print("\nResponse", messages.data[0].content[0].text.value)
     response = messages.data[0].content[0].text.value

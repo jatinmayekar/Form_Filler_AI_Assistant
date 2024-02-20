@@ -6,54 +6,143 @@ from pdf_fill_write import write_fillable_pdf_for_page_number
 import sys
 import os
 
-input_pdf_path = 'fill_form_1.pdf'
-output_pdf_path = 'fill_form_1_Complete.pdf'
+# input_pdf_path = 'test_full_1.pdf'
+# input_pdf_path1 = 'fill_form_1.pdf'
+# input_pdf_path2 = 'test_full_2-4-5.pdf'
+# input_pdf_path3 = 'test_full_2-4-5-2.pdf'
+#
+# output_pdf_path = 'fill_form_1_Complete.pdf'
+#
+# page_number = 4
+#
+#
+# def get_fields_from_current_page():
+#     # fields = fillpdfs.get_form_fields(input_pdf_path2, page_number=2)
+#     fields = fillpdfs.get_form_fields(input_pdf_path3)
+#     print("fields: ", fields)
+#
+#
+# get_fields_from_current_page()
 
-class SuppressPrint:
-    def __enter__(self):
-        self._original_stdout = sys.stdout  # Backup original stdout
-        sys.stdout = open(os.devnull, 'w')  # Redirect stdout to null device
+x = PdfReader('Parthshastra_For Print_V2_editable_OG.pdf')
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        sys.stdout.close()  # Close the stream
-        sys.stdout = self._original_stdout  # Restore original stdout
+# for i in range(7):
+#     page = x.pages[i]
+#     print(f"Page {i} annotations: {page['/Annots']}")
 
-def get_total_no_of_pages(input_pdf_path):
-    return len(PdfReader(input_pdf_path).pages)
+#page = x.pages[5]['/Annots'][0]['/T']
+#page = x.pages[5]
+#print(page)
 
-def find_latest_unfilled_page_with_fields(input_pdf_path):
-    page_number = -1
-    total_no_of_pages = get_total_no_of_pages(input_pdf_path)
-    #print("Total no of pages: ", total_no_of_pages)
+import pdfrw
 
-    for i in range(total_no_of_pages):
-        flag = False
-        with SuppressPrint():
-            fields = fillpdfs.get_form_fields(input_pdf_path, page_number=i+1)
-        for key, value in fields.items():
-            if value != "":
-                # page is filled, so skip and go to next page
-                flag = True
-                break
-        if flag == False:
-            # unfilled page found
-            page_number = i+1
+ANNOT_KEY = '/Annots'               # key for all annotations within a page
+ANNOT_FIELD_KEY = '/T'              # Name of field. i.e. given ID of field
+ANNOT_FORM_type = '/FT'             # Form type (e.g. text/button)
+ANNOT_FORM_button = '/Btn'          # ID for buttons, i.e. a checkbox
+ANNOT_FORM_text = '/Tx'             # ID for textbox
+ANNOT_FORM_options = '/Opt'
+ANNOT_FORM_combo = '/Ch'
+SUBTYPE_KEY = '/Subtype'
+WIDGET_SUBTYPE_KEY = '/Widget'
+ANNOT_FIELD_PARENT_KEY = '/Parent'  # Parent key for older pdf versions
+ANNOT_FIELD_KIDS_KEY = '/Kids'      # Kids key for older pdf versions
+ANNOT_VAL_KEY = '/V'
+ANNOT_RECT_KEY = '/Rect'
+
+
+def get_form_fields(input_pdf_path, sort=False, page_number=None):
+    """
+    Retrieves the form fields from a PDF and stores them in a dictionary.
+
+    Parameters:
+    - input_pdf_path (str): Path to the PDF file.
+    - sort (bool, optional): If True, return the fields sorted by their keys. Defaults to False.
+    - page_number (int, optional): Specifies the page number from which to extract fields.
+                                   If None, extracts from all pages. Defaults to None.
+
+    Returns:
+    - dict: A dictionary of form fields and their values.
+    """
+    data_dict = {}
+    pdf = pdfrw.PdfReader(input_pdf_path)
+
+    # Validate page_number if provided
+    if page_number is not None:
+        if not isinstance(page_number, int) or page_number < 1 or page_number > len(pdf.pages):
+            raise ValueError(f"Page number must be an integer between 1 and {len(pdf.pages)}.")
+
+    for i, page in enumerate(pdf.pages, start=1):
+        # Process only the specified page if page_number is provided
+        if page_number is not None and i != page_number:
+            continue
+
+        annotations = page[ANNOT_KEY]
+        if annotations:
+            for annotation in annotations:
+                if annotation[SUBTYPE_KEY] == WIDGET_SUBTYPE_KEY:
+                    if annotation[ANNOT_FIELD_KEY]:
+                        key = annotation[ANNOT_FIELD_KEY][1:-1]
+                        data_dict[key] = ''
+                        if annotation[ANNOT_VAL_KEY]:
+                            value = annotation[ANNOT_VAL_KEY]
+                            data_dict[key] = annotation[ANNOT_VAL_KEY]
+                            try:
+                                if type(annotation[ANNOT_VAL_KEY]) == pdfrw.objects.pdfstring.PdfString:
+                                    data_dict[key] = pdfrw.objects.PdfString.decode(annotation[ANNOT_VAL_KEY])
+                                elif type(annotation[ANNOT_VAL_KEY]) == pdfrw.objects.pdfname.BasePdfName:
+                                    if '/' in annotation[ANNOT_VAL_KEY]:
+                                        data_dict[key] = annotation[ANNOT_VAL_KEY][1:]
+                            except:
+                                pass
+                    elif annotation['/AP']:
+                        if not annotation['/T']:
+                            annotation = annotation['/Parent']
+                        key = annotation['/T'].to_unicode()
+                        data_dict[key] = annotation[ANNOT_VAL_KEY]
+                        try:
+                            if type(annotation[ANNOT_VAL_KEY]) == pdfrw.objects.pdfstring.PdfString:
+                                data_dict[key] = pdfrw.objects.PdfString.decode(annotation[ANNOT_VAL_KEY])
+                            elif type(annotation[ANNOT_VAL_KEY]) == pdfrw.objects.pdfname.BasePdfName:
+                                if '/' in annotation[ANNOT_VAL_KEY]:
+                                    data_dict[key] = annotation[ANNOT_VAL_KEY][1:]
+                        except:
+                            pass
+        # Break after processing the specified page
+        if page_number is not None and i == page_number:
             break
 
-    if page_number == -1:
-        return None
+    if sort:
+        return dict(sorted(data_dict.items()))
     else:
-        return page_number, fields
-    
-def set_fields(input_pdf_path, output_pdf_path, data_dict, page_number):
-    write_fillable_pdf_for_page_number(input_pdf_path, output_pdf_path, data_dict, page_number, flatten=True)
-    return output_pdf_path
+        return data_dict
 
-def add_custom_function(input_pdf_path, output_pdf_path):
-    return output_pdf_path
 
-print(find_latest_unfilled_page_with_fields(input_pdf_path))
+def extract_field_name(field):
+    """
+    Extracts and decodes the field name from a PDF annotation.
+    """
+    try:
+        return pdfrw.objects.PdfString.decode(field) if field else ''
+    except AttributeError:
+        return field if isinstance(field, str) else ''
 
-data_dict = {'Name': 'adada', 'Date of Birth': '34343', 'Address': '3fddefdfd', 'Mobile': '34343434', 'Telephone R': '', 'IT PANGIR No': '', 'Mobile_2': '', 'Blood Group': '', 'Email': '', 'Driving Licence No': '', 'Expires on': '', 'Passport No': '', 'Expires on_2': '', 'PFGPFEPFNPS No': '', 'Name_2': '', 'Date of Birth_2': '', 'Address_2': '', 'Mobile_3': '', 'Telephone R_2': '', 'IT PANGIR No_2': '', 'Mobile_4': '', 'Blood Group_2': '', 'Email_2': ''}
-print(set_fields(input_pdf_path, output_pdf_path, data_dict, 1))
 
+def extract_field_value(annotation):
+    """
+    Extracts and decodes the field value from a PDF annotation.
+    """
+    field_value = annotation.get(ANNOT_VAL_KEY, '')
+    try:
+        if isinstance(field_value, pdfrw.objects.pdfstring.PdfString):
+            return pdfrw.objects.PdfString.decode(field_value)
+        elif isinstance(field_value, pdfrw.objects.pdfname.BasePdfName) and '/' in field_value:
+            return field_value[1:]
+    except Exception as e:
+        print(f"Error decoding field value: {e}")
+    return field_value
+
+pgn = 4
+print("\n My function: ", get_form_fields('Parthshastra_For Print_V2_editable_OG.pdf', page_number=pgn))
+print("\n")
+print("\n Og function: ", fillpdfs.get_form_fields('Parthshastra_For Print_V2_editable_OG.pdf', page_number=pgn))
