@@ -30,8 +30,6 @@ user_query = ""
 ai_response = ""
 thread_id = 0
 turn_count = 0
-start_time = datetime.now()
-end_time = datetime.now()
 conversation_history = ""
 analyzer_response_value_display = ""
 # encoding = tiktoken.get_encoding("cl100k_base")
@@ -825,45 +823,8 @@ if prompt != "":
         st.markdown(response)
 
     input_audio_flag = False
-    end_time = datetime.now()
     user_query = prompt
     ai_response = response
     thread_id = st.session_state.thread.id
     turn_count = len(st.session_state.messages)
-    start_time = start_time
-    end_time = end_time
     conversation_history = json.dumps(st.session_state.messages)
-
-with st.sidebar:
-    st.write("User ID ", user_id)
-    st.write("Model: gpt-4-1106-preview")
-    st.write("Timestamp ", start_time)
-
-    current_time = pd.Timestamp.now()  # or use any other method to get the current time
-    st.session_state['timestamps'].append(current_time)
-
-    # Convert to DataFrame
-    df = pd.DataFrame({'Timestamp': st.session_state['timestamps']})
-
-    # Plotting (if there are timestamps)
-    if not df.empty:
-        # Extracting hour of the day for daily analysis
-        df['Hour'] = df['Timestamp'].dt.hour
-
-        # Plotting Hourly Distribution
-        plt.figure(figsize=(10, 4))
-        sns.histplot(df['Hour'], bins=24, kde=False)
-        plt.title('Hourly Interaction Frequency')
-        plt.xlabel('Hour of the Day')
-        plt.ylabel('Number of Interactions')
-        plt.xticks(range(0, 24))
-        plt.grid(True)
-
-        # Display the plot in Streamlit
-        st.pyplot(plt)
-
-    response_time_seconds = (end_time - start_time).total_seconds()
-
-    st.write("Thread ID: ", thread_id)
-    st.write("Count: ", turn_count)
-    st.write("Response Time (seconds): ", str(response_time_seconds))
