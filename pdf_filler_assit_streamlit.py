@@ -7,8 +7,6 @@ import time
 from datetime import datetime
 
 import openai
-import pandas as pd
-import seaborn as sns
 import streamlit as st
 from fillpdf import fillpdfs
 from load_dotenv import load_dotenv
