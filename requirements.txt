@@ -1,0 +1,11 @@
+openai
+tiktoken
+streamlit
+pandas
+numpy
+matplotlib
+pyaudio
+opencv-python
+requests
+seaborn
+python-dotenv
