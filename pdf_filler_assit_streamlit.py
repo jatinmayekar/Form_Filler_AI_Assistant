@@ -9,7 +9,7 @@ from datetime import datetime
 import openai
 import streamlit as st
 from fillpdf import fillpdfs
-from load_dotenv import load_dotenv
+from dotenv import load_dotenv
 from openai import OpenAI
 from pdfrw import PdfReader
 
