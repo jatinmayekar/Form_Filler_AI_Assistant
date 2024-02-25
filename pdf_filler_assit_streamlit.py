@@ -4,7 +4,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import datetime
+import datetime
 
 import openai
 import streamlit as st
