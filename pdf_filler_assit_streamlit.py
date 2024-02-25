@@ -1,37 +1,17 @@
-# import os
-# import sys
 import json
-# import datetime
-# import random
-# import re
 import logging
 import os
 import sqlite3
 import sys
-# import requests
 import time
 from datetime import datetime
 
-import matplotlib.pyplot as plt
 import openai
 import pandas as pd
 import seaborn as sns
-# import tiktoken
 import streamlit as st
 from fillpdf import fillpdfs
-# from pathlib import Path
-# import tkinter as tk
-# import base64
-# from io import StringIO
-# from tkinter import messagebox
-# import sqlite3
 from load_dotenv import load_dotenv
-# import pandas as pd
-# import numpy as np
-# import matplotlib.pyplot as plt
-# import pyaudio
-# import wave
-# import cv2
 from openai import OpenAI
 from pdfrw import PdfReader
 
