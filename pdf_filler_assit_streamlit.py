@@ -750,8 +750,7 @@ if prompt != "":
                         msg.append({
                             "tool_call_id": tool_calls[i].id,
                             "output": f"Input PDF path stored: "
-                                      f"{store_input_pdf_path(json.loads(tool_calls[i].function.arguments)
-                                                              ['pdf_path'])}"
+                                      f"{store_input_pdf_path(json.loads(tool_calls[i].function.arguments)['pdf_path'])}"
                         })
                     elif tool_calls[i].function.name == "get_pdf_len":
                         msg.append({
