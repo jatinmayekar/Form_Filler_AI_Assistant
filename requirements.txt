@@ -1,0 +1,7 @@
+
+openai
+fillpdf
+streamlit
+numpy
+requests
+python-dotenv
